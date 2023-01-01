@@ -5,13 +5,13 @@ public class Waypoint {
     private final double x;
     private final double y;
     private final double angle;
-    private final double velocity;
+    private final double weight;
 
-    public Waypoint(double x, double y, double angle, double velocity, double runTime) {
+    public Waypoint(double x, double y, double angle, double weight, double runTime) {
         this.x = x;
         this.y = y;
         this.angle = angle;
-        this.velocity = velocity;
+        this.weight = weight;
         this.runTime = runTime;
     }
 
@@ -27,8 +27,8 @@ public class Waypoint {
         return angle;
     }
 
-    public double getVelocity() {
-        return velocity;
+    public double getWeight() {
+        return weight;
     }
 
     public double getRunTime() {

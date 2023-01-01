@@ -8,19 +8,13 @@ package frc.robot.commands;
 import edu.wpi.first.math.controller.PIDController;
 import edu.wpi.first.math.controller.RamseteController;
 import edu.wpi.first.math.controller.SimpleMotorFeedforward;
-import edu.wpi.first.math.geometry.Pose2d;
-import edu.wpi.first.math.geometry.Transform2d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.math.kinematics.DifferentialDriveWheelSpeeds;
 import edu.wpi.first.math.trajectory.Trajectory;
-import edu.wpi.first.networktables.NetworkTableEntry;
 import edu.wpi.first.networktables.NetworkTableInstance;
 import edu.wpi.first.wpilibj.Timer;
-import edu.wpi.first.wpilibj.smartdashboard.Field2d;
 import edu.wpi.first.wpilibj2.command.CommandBase;
-import edu.wpi.first.wpilibj2.command.RamseteCommand;
 import frc.robot.Constants;
-import frc.robot.TankMotionProfile;
 import frc.robot.subsystems.DriveSubsystem;
 
 
@@ -29,22 +23,20 @@ public class TrajectoryCommand extends CommandBase
 {
     @SuppressWarnings({"PMD.UnusedPrivateField", "PMD.SingularField"})
     private final DriveSubsystem subsystem;
-    private RamseteController ramseteController;
+    private final RamseteController ramseteController;
 
     private final Timer timer;
 
-    private Trajectory trajectory;
+    private final Trajectory trajectory;
 
     private double startTime;
     private double prevTime;
 
-    private Pose2d startPose;
-
-    private PIDController ctrlLeft;
-    private PIDController ctrlRight;
+    private final PIDController ctrlLeft;
+    private final PIDController ctrlRight;
     private DifferentialDriveWheelSpeeds prevSpeeds;
 
-    private SimpleMotorFeedforward feedforward;
+    private final SimpleMotorFeedforward feedforward;
 
     /**
      * Creates a new ExampleCommand.
@@ -68,20 +60,21 @@ public class TrajectoryCommand extends CommandBase
 
         this.ctrlLeft = new PIDController(Constants.DriveConstants.kPDriveVel, 0, 0);
         this.ctrlRight = new PIDController(Constants.DriveConstants.kPDriveVel, 0, 0);
+
+        NetworkTableInstance inst = NetworkTableInstance.getDefault();
     }
     
     
     // Called when the command is initially scheduled.
     @Override
     public void initialize() {
-        startPose = subsystem.getPose();
         prevTime = -1;
         timer.reset();
         timer.start();
 
         var initialState = this.trajectory.sample(0);
         prevSpeeds =
-                this.subsystem.getKinematics().toWheelSpeeds(
+                Constants.DriveConstants.kDriveKinematics.toWheelSpeeds(
                         new ChassisSpeeds(
                                 initialState.velocityMetersPerSecond,
                                 0,
@@ -112,7 +105,7 @@ public class TrajectoryCommand extends CommandBase
         //        new Pose2d(transform2d.getTranslation(), transform2d.getRotation())
                 subsystem.getPose()
                 , state);
-        DifferentialDriveWheelSpeeds wheelSpeeds = subsystem.getKinematics().toWheelSpeeds(speeds);
+        DifferentialDriveWheelSpeeds wheelSpeeds = Constants.DriveConstants.kDriveKinematics.toWheelSpeeds(speeds);
 
 
         var leftSpeedSetpoint = wheelSpeeds.leftMetersPerSecond;

@@ -23,11 +23,6 @@ public class RobotContainer
     // The robot's subsystems and commands are defined here...
     private final DriveSubsystem subsystem = new DriveSubsystem();
 
-    // private final DifferentialDrivetrainSim sim = new DifferentialDrivetrainSim(
-    //         DCMotor.getNEO(3),
-            
-    // );
-
     TankMotionProfile prof = new TankMotionProfile(ParametricSpline.fromWaypoints(new Waypoint[]{
             new Waypoint(0, 0, 0, 2, 3),
             new Waypoint(9, 4, Math.toRadians(-90), 2, 5),
@@ -66,7 +61,6 @@ public class RobotContainer
     {
         // Configure the button bindings
         configureButtonBindings();
-        // subsystem.getFieldSim().getObject("trajectory").setTrajectory(prof.asTrajectory());
     }
     
     

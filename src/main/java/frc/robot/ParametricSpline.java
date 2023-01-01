@@ -12,7 +12,7 @@ import java.util.stream.Collectors;
 
 public class ParametricSpline {
 
-    private List<TimedPath> paths;
+    private final List<TimedPath> paths;
 
     private ParametricSpline(List<TimedPath> paths) {
         this.paths = paths;
@@ -23,12 +23,11 @@ public class ParametricSpline {
     }
 
     public double getArcLengthAtTime(double time) {
-        double arcLength = 0;
-        double ARC_LENGTH_PRECISION = 0.01;
-        for (double i = 0; i < time; i += ARC_LENGTH_PRECISION) {
-            arcLength += Math.sqrt(Math.pow(getDxAtTime(i), 2) + Math.pow(getDyAtTime(i), 2)) * ARC_LENGTH_PRECISION;
-        }
-        return arcLength;
+        return getArcLengthAtTime(time, 0.01);
+    }
+
+    public double getArcLengthAtTime(double time, double precision) {
+        return Utils.integrate((t) -> Math.sqrt(Math.pow(getDxAtTime(t), 2) + Math.pow(getDyAtTime(t), 2)), 0, time, precision);
     }
 
     public double getTotalTime() {
@@ -106,10 +105,20 @@ public class ParametricSpline {
                     waypoint.get("x").asDouble(),
                     waypoint.get("y").asDouble(),
                     waypoint.get("angle").asDouble(),
-                    waypoint.get("velocity").asDouble(),
+                    waypoint.get("weight").asDouble(),
                     waypoint.get("time").asDouble()
             ));
         }
         return fromWaypoints(parsedWaypoints);
+    }
+
+    public static void main(String[] args) throws IOException {
+        TankMotionProfile prof = new TankMotionProfile(fromFile(new File("C:/Users/jason/Documents/cool.json")),
+                new TankMotionProfile.TankMotionProfileConstraints(3, 3));
+        double totalTime = prof.getTotalTime();
+        for (double i = 0; i <= totalTime; i += 0.01) {
+            System.out.println("current: " + prof.getStateAtTime(i));
+            System.out.println("old: " + prof.getStateAtTime_old(i));
+        }
     }
 }

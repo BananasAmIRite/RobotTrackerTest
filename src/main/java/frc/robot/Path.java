@@ -19,16 +19,16 @@ public class Path {
             a.getRunTime(),
             a.getX(), 
             b.getX(), 
-            a.getVelocity() * Math.cos(a.getAngle()), 
-            b.getVelocity() * Math.cos(b.getAngle())
+            a.getWeight() * Math.cos(a.getAngle()),
+            b.getWeight() * Math.cos(b.getAngle())
         ); 
 
         this.yCoeffs = calculateCoeffs(
             a.getRunTime(),
             a.getY(), 
             b.getY(), 
-            a.getVelocity() * Math.sin(a.getAngle()), 
-            b.getVelocity() * Math.sin(b.getAngle())
+            a.getWeight() * Math.sin(a.getAngle()),
+            b.getWeight() * Math.sin(b.getAngle())
         ); 
     }
 

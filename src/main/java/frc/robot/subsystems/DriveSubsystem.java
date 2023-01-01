@@ -7,8 +7,6 @@ package frc.robot.subsystems;
 import edu.wpi.first.math.VecBuilder;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
-import edu.wpi.first.math.geometry.Translation2d;
-import edu.wpi.first.math.kinematics.DifferentialDriveKinematics;
 import edu.wpi.first.math.kinematics.DifferentialDriveOdometry;
 import edu.wpi.first.math.kinematics.DifferentialDriveWheelSpeeds;
 import edu.wpi.first.networktables.NetworkTableEntry;
@@ -73,8 +71,6 @@ public class DriveSubsystem extends SubsystemBase {
     private final Field2d fieldSim;
     private final ADXRS450_GyroSim gyroSim;
 
-    private final DifferentialDriveKinematics kinematics;
-
     private final NetworkTableEntry xEntry;
     private final NetworkTableEntry yEntry;
 
@@ -120,8 +116,6 @@ public class DriveSubsystem extends SubsystemBase {
 
             fieldSim = null;
         }
-
-        kinematics = new DifferentialDriveKinematics(DriveConstants.kTrackwidthMeters);
         NetworkTableInstance inst = NetworkTableInstance.getDefault();
         xEntry = inst.getEntry("XPos");
         yEntry = inst.getEntry("YPos");
@@ -276,10 +270,6 @@ public class DriveSubsystem extends SubsystemBase {
      */
     public double getHeading() {
         return Math.IEEEremainder(gyro.getAngle(), 360) * (DriveConstants.kGyroReversed ? -1.0 : 1.0);
-    }
-
-    public DifferentialDriveKinematics getKinematics() {
-        return kinematics;
     }
 
     public Field2d getFieldSim() {

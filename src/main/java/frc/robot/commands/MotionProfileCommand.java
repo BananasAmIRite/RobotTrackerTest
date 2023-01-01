@@ -8,17 +8,13 @@ package frc.robot.commands;
 import edu.wpi.first.math.controller.PIDController;
 import edu.wpi.first.math.controller.RamseteController;
 import edu.wpi.first.math.controller.SimpleMotorFeedforward;
-import edu.wpi.first.math.geometry.Pose2d;
-import edu.wpi.first.math.geometry.Transform2d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.math.kinematics.DifferentialDriveWheelSpeeds;
 import edu.wpi.first.math.trajectory.Trajectory;
 import edu.wpi.first.networktables.NetworkTableEntry;
 import edu.wpi.first.networktables.NetworkTableInstance;
 import edu.wpi.first.wpilibj.Timer;
-import edu.wpi.first.wpilibj.smartdashboard.Field2d;
 import edu.wpi.first.wpilibj2.command.CommandBase;
-import edu.wpi.first.wpilibj2.command.RamseteCommand;
 import frc.robot.Constants;
 import frc.robot.TankMotionProfile;
 import frc.robot.subsystems.DriveSubsystem;
@@ -29,23 +25,24 @@ public class MotionProfileCommand extends CommandBase
 {
     @SuppressWarnings({"PMD.UnusedPrivateField", "PMD.SingularField"})
     private final DriveSubsystem subsystem;
-    private RamseteController ramseteController;
+    private final RamseteController ramseteController;
 
     private final Timer timer;
 
-    private TankMotionProfile motionProfile;
-    private double maxTime; 
+    private final TankMotionProfile motionProfile;
+    private final double maxTime;
 
     private double startTime;
     private double prevTime;
 
-    private Pose2d startPose;
-
-    private PIDController ctrlLeft;
-    private PIDController ctrlRight;
+    private final PIDController ctrlLeft;
+    private final PIDController ctrlRight;
     private DifferentialDriveWheelSpeeds prevSpeeds;
 
-    private SimpleMotorFeedforward feedforward;
+    private final SimpleMotorFeedforward feedforward;
+
+    private final NetworkTableEntry velocity;
+    private final NetworkTableEntry robotVelocity;
 
     /**
      * Creates a new ExampleCommand.
@@ -72,20 +69,23 @@ public class MotionProfileCommand extends CommandBase
 
         this.ctrlLeft = new PIDController(Constants.DriveConstants.kPDriveVel, 0, 0);
         this.ctrlRight = new PIDController(Constants.DriveConstants.kPDriveVel, 0, 0);
+
+        NetworkTableInstance inst = NetworkTableInstance.getDefault();
+        this.velocity = inst.getEntry("velocity");
+        this.robotVelocity = inst.getEntry("robotVelocity");
     }
     
     
     // Called when the command is initially scheduled.
     @Override
     public void initialize() {
-        startPose = subsystem.getPose();
         prevTime = -1;
         timer.reset();
         timer.start();
 
         var initialState = this.motionProfile.getStateAtTime(0);
         prevSpeeds =
-                this.subsystem.getKinematics().toWheelSpeeds(
+                Constants.DriveConstants.kDriveKinematics.toWheelSpeeds(
                         new ChassisSpeeds(
                                 initialState.velocityMetersPerSecond,
                                 0,
@@ -104,19 +104,19 @@ public class MotionProfileCommand extends CommandBase
         double dt = curTime - prevTime;
         Trajectory.State state = this.motionProfile.getStateAtTime(curTime);
 
+        this.velocity.setDouble(state.velocityMetersPerSecond);
+        this.robotVelocity.setDouble(Constants.DriveConstants.kDriveKinematics.toChassisSpeeds(subsystem.getWheelSpeeds()).vxMetersPerSecond);
+
         if (prevTime < 0) {
             subsystem.tankDriveVolts(0, 0);
             prevTime = curTime;
             return;
         }
 
-        Transform2d transform2d = subsystem.getPose().minus(startPose);
-
         ChassisSpeeds speeds = ramseteController.calculate(
-        //        new Pose2d(transform2d.getTranslation(), transform2d.getRotation())
                 subsystem.getPose()
                 , state);
-        DifferentialDriveWheelSpeeds wheelSpeeds = subsystem.getKinematics().toWheelSpeeds(speeds);
+        DifferentialDriveWheelSpeeds wheelSpeeds = Constants.DriveConstants.kDriveKinematics.toWheelSpeeds(speeds);
 
 
         var leftSpeedSetpoint = wheelSpeeds.leftMetersPerSecond;
@@ -138,6 +138,7 @@ public class MotionProfileCommand extends CommandBase
                 rightFeedforward
                         + ctrlRight.calculate(
                         subsystem.getWheelSpeeds().rightMetersPerSecond, rightSpeedSetpoint);
+
         this.subsystem.tankDriveVolts(leftOutput, rightOutput);
 
         prevSpeeds = wheelSpeeds;

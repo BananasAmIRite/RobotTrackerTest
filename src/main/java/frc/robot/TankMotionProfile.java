@@ -10,15 +10,19 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 public class TankMotionProfile {
-
-    private List<MotionProfileNode> nodes;
+    private final List<MotionProfileNode> nodes;
     private ParametricSpline spline;
 
     public TankMotionProfile(ParametricSpline spline, TankMotionProfileConstraints constraints) {
         this.spline = spline;
-        this.nodes = calculateMotionProfile(spline, constraints, 0.5);
+        this.nodes = calculateMotionProfile(spline, constraints, 0.1);
     }
 
+    public TankMotionProfile(List<MotionProfileNode> nodes) {
+        this.nodes = nodes;
+    }
+
+    // TODO: offload most of the computations to preprocessing somewhere else
     // TODO: gotta apply voltage constraints as well maybe
     private List<MotionProfileNode> calculateMotionProfile(ParametricSpline spline, TankMotionProfileConstraints constraints, double nodeLength) {
         List<MotionProfileNode> nodes = new ArrayList<>();
@@ -39,7 +43,7 @@ public class TankMotionProfile {
             nodes.add(lastNode);
 
             for (double i = nodeLength; i < spline.getTotalLength(); i += nodeLength) {
-                double splineTime = calculateTimeFromSplineDistance(spline, i, 0.1);
+                double splineTime = calculateTimeFromSplineDistance(spline, i, 1E-1);
                 double radius = spline.signedRadiusAt(splineTime);
 
                 // vf^2 = v0^2+2ad
@@ -61,7 +65,6 @@ public class TankMotionProfile {
                 lastNode = node;
                 nodes.add(node);
             }
-
         }
 
         // backward pass velocity
@@ -108,8 +111,8 @@ public class TankMotionProfile {
         double timeUpper = spline.getTotalTime();
         while (true) {
             double time = (timeLower + timeUpper) / 2;
-            double dist = spline.getArcLengthAtTime(time);
-            if (Math.abs(distance - dist) <= precision) return time;
+            double dist = spline.getArcLengthAtTime(time, precision);
+            if (Math.abs(distance - dist) <= precision || Math.abs(timeUpper - timeLower) < 1E-9) return time; // either we've zeroed in on a time or the distance is precise enough
             if (distance - dist < 0) timeUpper = time;
             if (distance - dist > 0) timeLower = time;
         }
@@ -119,13 +122,15 @@ public class TankMotionProfile {
         return this.nodes;
     }
 
-    public Trajectory.State getStateAtTime(double time) {
+    // TODO: https://www.desmos.com/calculator/zpzf9dpnh2 PROGRAMMATICALLY INTEGRATE LINES 16, 17 to get dx, dy, add to node position to get new position,
+    //  then divide by dt and you get dy/dt, dx/dt, rotation; curvature i have zero idea maybe you can get two close points or just use the node's points or maybe its curvature
+    public Trajectory.State getStateAtTime_old(double time) {
         double totalTime = 0;
         for (MotionProfileNode node : this.nodes) {
             if (totalTime <= time && totalTime + node.time >= time) {
                 double dt = time - totalTime;
                 double ds = node.velocity * dt + node.acceleration * dt * dt / 2;
-                double splineTime = calculateTimeFromSplineDistance(spline, node.distanceTravelled + ds, 0.1); 
+                double splineTime = calculateTimeFromSplineDistance(spline, node.distanceTravelled + ds, 1E-1);
 
                 return new Trajectory.State(
                         time,
@@ -135,20 +140,64 @@ public class TankMotionProfile {
                                 new Translation2d(spline.getXAtTime(splineTime), spline.getYAtTime(splineTime)),
                                 new Rotation2d(Math.atan2(spline.getDyAtTime(splineTime), spline.getDxAtTime(splineTime)))
                         ),
-                        node.curvature
+//                        node.curvature
+                        spline.signedCurvatureAt(splineTime)
                 );
             }
             totalTime += node.time;
         }
-        return null;
+        return this.nodes.get(this.nodes.size() - 1).asState();
+    }
+
+    // less expensive to calculate, more preprocessing (small nodeLength) required for good results
+    // simulates robot position using the average angular accelerations and velocities, which generates a curve close to the original curve
+    // good thing is, this works without the original spline, so we can preprocess elsewhere and save to a file
+    // TODO: do that ^^
+    public Trajectory.State getStateAtTime(double time) {
+        double totalTime = 0;  
+        for (int i = 0; i < this.nodes.size()-1; i++) {
+            MotionProfileNode node = this.nodes.get(i);
+            MotionProfileNode nextNode = this.nodes.get(i+1);
+            if (totalTime <= time && totalTime + node.time >= time) {
+                double dt = time - totalTime;
+                if (dt == 0) return node.asState();
+
+                double angularVelocity = node.velocity * node.curvature;
+                double angularAcceleration = (nextNode.velocity * nextNode.curvature - node.velocity * node.curvature) / (node.time);
+
+                double dx = Utils.integrate((t) -> (node.velocity + node.acceleration * t) *
+                        Math.cos(node.pose.getRotation().getRadians() + angularVelocity * t + angularAcceleration * t * t / 2), 0, dt, dt*1E-2);
+                double dy = Utils.integrate((t) -> (node.velocity + node.acceleration * t) *
+                        Math.sin(node.pose.getRotation().getRadians() + angularVelocity * t + angularAcceleration * t * t / 2), 0, dt, dt*1E-2);
+
+                double vx = (node.velocity + node.acceleration * dt) *
+                        Math.cos(node.pose.getRotation().getRadians() + angularVelocity * dt + angularAcceleration * dt * dt / 2);
+                double vy = (node.velocity + node.acceleration * dt) *
+                        Math.sin(node.pose.getRotation().getRadians() + angularVelocity * dt + angularAcceleration * dt * dt / 2);
+
+                double ax = node.acceleration * Math.cos(node.pose.getRotation().getRadians() + angularVelocity * dt + angularAcceleration * dt * dt / 2)
+                        - (node.velocity + node.acceleration * dt)*(angularVelocity+angularAcceleration * dt) * Math.sin(node.pose.getRotation().getRadians() + angularVelocity * dt + angularAcceleration * dt * dt / 2);
+                double ay = node.acceleration * Math.sin(node.pose.getRotation().getRadians() + angularVelocity * dt + angularAcceleration * dt * dt / 2)
+                        + (node.velocity + node.acceleration * dt)*(angularVelocity+angularAcceleration * dt) * Math.cos(node.pose.getRotation().getRadians() + angularVelocity * dt + angularAcceleration * dt * dt / 2);
+
+                return new Trajectory.State(
+                        time,
+                        node.velocity + node.acceleration * dt,
+                        node.acceleration,
+                        new Pose2d(
+                                new Translation2d(node.pose.getX() + dx, node.pose.getY() + dy),
+                                new Rotation2d(Math.atan2(vy, vx))
+                        ),
+                        (vx*ay-vy*ax)/Math.pow(vx*vx+vy*vy, 3/2.0)
+                );
+            }
+            totalTime += node.time;
+        }
+        return this.nodes.get(this.nodes.size() - 1).asState();
     }
 
     public double getTotalTime() {
-        double totalTime = 0;
-        for (MotionProfileNode node : this.nodes) {
-            totalTime += node.time;
-        }
-        return totalTime;
+        return this.nodes.get(this.nodes.size() - 1).totalTime; 
     }
 
     public Trajectory asTrajectory() {
@@ -186,6 +235,18 @@ public class TankMotionProfile {
 
         public double getTime() {
             return time;
+        }
+
+        public Pose2d getPose() {
+            return pose;
+        }
+
+        public double getCurvature() {
+            return curvature;
+        }
+
+        public double getTotalTime() {
+            return totalTime;
         }
 
         public Trajectory.State asState() {
