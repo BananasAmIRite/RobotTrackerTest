@@ -122,8 +122,6 @@ public class TankMotionProfile {
         return this.nodes;
     }
 
-    // TODO: https://www.desmos.com/calculator/zpzf9dpnh2 PROGRAMMATICALLY INTEGRATE LINES 16, 17 to get dx, dy, add to node position to get new position,
-    //  then divide by dt and you get dy/dt, dx/dt, rotation; curvature i have zero idea maybe you can get two close points or just use the node's points or maybe its curvature
     public Trajectory.State getStateAtTime_old(double time) {
         double totalTime = 0;
         for (MotionProfileNode node : this.nodes) {
@@ -152,7 +150,6 @@ public class TankMotionProfile {
     // less expensive to calculate, more preprocessing (small nodeLength) required for good results
     // simulates robot position using the average angular accelerations and velocities, which generates a curve close to the original curve
     // good thing is, this works without the original spline, so we can preprocess elsewhere and save to a file
-    // TODO: do that ^^
     public Trajectory.State getStateAtTime(double time) {
         double totalTime = 0;  
         for (int i = 0; i < this.nodes.size()-1; i++) {
@@ -161,6 +158,8 @@ public class TankMotionProfile {
             if (totalTime <= time && totalTime + node.time >= time) {
                 double dt = time - totalTime;
                 if (dt == 0) return node.asState();
+
+                // https://www.desmos.com/calculator/zpzf9dpnh2
 
                 double angularVelocity = node.velocity * node.curvature;
                 double angularAcceleration = (nextNode.velocity * nextNode.curvature - node.velocity * node.curvature) / (node.time);
