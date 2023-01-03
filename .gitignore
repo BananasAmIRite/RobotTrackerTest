@@ -98,6 +98,7 @@ local.properties
 # Gradle
 .idea/**/gradle.xml
 .idea/**/libraries
+gradle.properties
 
 # Gradle and Maven with auto-import
 # When using Gradle or Maven with auto-import, you should exclude module files,
@@ -205,7 +206,8 @@ replay_pid*
 .LSOverride
 
 # Icon must end with two \r
-Icon
+Icon
+
 
 # Thumbnails
 ._*
