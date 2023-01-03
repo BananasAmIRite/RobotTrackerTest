@@ -17,6 +17,7 @@ import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.CommandBase;
 import frc.robot.Constants;
 import frc.robot.subsystems.DriveSubsystem;
+import frc.robot.utils.MotionProfileUtils;
 import org.bananasamirite.robotmotionprofile.TankMotionProfile;
 
 
@@ -56,7 +57,7 @@ public class MotionProfileCommand extends CommandBase
         // Use addRequirements() here to declare subsystem dependencies.
         addRequirements(subsystem);
 
-        this.subsystem.getFieldSim().getObject("trajectory").setTrajectory(motionProfile.asTrajectory());
+        this.subsystem.getFieldSim().getObject("trajectory").setTrajectory(MotionProfileUtils.profileToTrajectory(motionProfile));
 
 
 
@@ -83,7 +84,7 @@ public class MotionProfileCommand extends CommandBase
         timer.reset();
         timer.start();
 
-        var initialState = this.motionProfile.getStateAtTime(0);
+        Trajectory.State initialState = MotionProfileUtils.profileStateToTrajectoryState(this.motionProfile.getStateAtTime(0));
         prevSpeeds =
                 Constants.DriveConstants.kDriveKinematics.toWheelSpeeds(
                         new ChassisSpeeds(
@@ -102,7 +103,7 @@ public class MotionProfileCommand extends CommandBase
         double curTime = timer.get();
 
         double dt = curTime - prevTime;
-        Trajectory.State state = this.motionProfile.getStateAtTime(curTime);
+        Trajectory.State state = MotionProfileUtils.profileStateToTrajectoryState(this.motionProfile.getStateAtTime(curTime));
 
         this.velocity.setDouble(state.velocityMetersPerSecond);
         this.robotVelocity.setDouble(Constants.DriveConstants.kDriveKinematics.toChassisSpeeds(subsystem.getWheelSpeeds()).vxMetersPerSecond);
